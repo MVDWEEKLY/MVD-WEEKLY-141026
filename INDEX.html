@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Market Dashboard #MVD - Financial Terminal</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Financial Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Font Awesome for Terminal Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Tone.js for Subtle UI Audio Feedback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            terminal: {
+              bg: '#070b14',
+              surface: '#0d1527',
+              card: '#111c34',
+              hover: '#162544',
+              border: '#1f3358',
+              gold: '#f59e0b',
+              goldMuted: '#d97706',
+              bullish: '#10b981',
+              bearish: '#ef4444',
+              cyan: '#06b6d4',
+              indigo: '#6366f1'
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0a101f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f3358;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #375382;
+    }
+
+    /* Live Ticker Animation */
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: ticker 38s linear infinite;
+    }
+    .ticker-track:hover {
+      animation-play-state: paused;
+    }
+
+    /* Pulse Glows */
+    .glow-gold {
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+    }
+    .glow-green {
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+    }
+    .glow-red {
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+    }
+
+    /* Glassmorphism subtle surface */
+    .glass-panel {
+      background: linear-gradient(135deg, rgba(17, 28, 52, 0.85) 0%, rgba(13, 21, 39, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(31, 51, 88, 0.8);
+    }
+    .price-flash-up {
+      animation: flashGreen 0.7s ease-out;
+    }
+    .price-flash-down {
+      animation: flashRed 0.7s ease-out;
+    }
+    @keyframes flashGreen {
+      0% { background-color: rgba(16, 185, 129, 0.35); }
+      100% { background-color: transparent; }
+    }
+    @keyframes flashRed {
+      0% { background-color: rgba(239, 68, 68, 0.35); }
+      100% { background-color: transparent; }
+    }
+  </style>
+</head>
+
+<body class="bg-terminal-bg text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-terminal-gold selection:text-black">
+
+  <!-- Top Global Ticker Tape -->
+  <div class="w-full bg-[#050811] border-b border-terminal-border/80 overflow-hidden text-xs py-1.5 font-mono select-none">
+    <div class="ticker-track" id="globalTickerTrack">
+      <!-- Injected via JavaScript for seamless dual-loop -->
+    </div>
+  </div>
+
+  <!-- Main Terminal Header -->
+  <header class="sticky top-0 z-40 bg-terminal-surface/95 backdrop-blur-md border-b border-terminal-border px-4 lg:px-6 py-2.5">
+    <div class="max-w-[1720px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+      
+      <!-- Brand & Date Badge -->
+      <div class="flex items-center gap-3.5">
+        <div class="flex items-center gap-2">
+          <span class="bg-terminal-gold text-slate-950 font-black px-2 py-0.5 rounded text-sm tracking-wider font-mono shadow-sm">#MVD</span>
+          <h1 class="text-lg lg:text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+            WEEKLY MARKET DASHBOARD
+            <span class="hidden sm:inline-block text-xs px-2 py-0.5 bg-terminal-card border border-terminal-border rounded text-terminal-gold font-mono">14 OCT 2026</span>
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="flex h-2.5 w-2.5 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span class="text-[11px] font-mono text-emerald-400 tracking-wide uppercase font-semibold">MARKET LIVE</span>
+        </div>
+      </div>
+
+      <!-- Live Search, Ticker Audio & Controls -->
+      <div class="flex items-center flex-wrap gap-2.5">
+        <!-- Universal Instant Search -->
+        <div class="relative w-full sm:w-64">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+          <input 
+            type="text" 
+            id="terminalSearch" 
+            placeholder="Search index, fund, IPO, sector..." 
+            class="w-full bg-terminal-card border border-terminal-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold transition-all"
+            oninput="handleGlobalSearch(this.value)"
+          >
+          <span id="searchClearBtn" onclick="clearGlobalSearch()" class="hidden absolute right-2.5 top-2 cursor-pointer text-slate-400 hover:text-white text-xs">✕</span>
+        </div>
+
+        <!-- Simulated Live Tick Toggle -->
+        <button 
+          id="simulateTickBtn" 
+          onclick="toggleSimulation()" 
+          title="Simulate Real-time Market Fluctuation"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border border-terminal-border bg-terminal-card hover:bg-terminal-hover text-slate-300 hover:text-white transition-all"
+        >
+          <i class="fa-solid fa-bolt text-terminal-gold" id="tickStatusIcon"></i>
+          <span id="tickStatusText">Live Pulse: ON</span>
+        </button>
+
+        <!-- UI Audio Toggle -->
+        <button 
+          id="audioToggleBtn" 
+          onclick="toggleAudio()" 
+          title="Toggle Terminal Audio"
+          class="px-2.5 py-1.5 rounded-lg text-xs font-mono border border-terminal-border bg-terminal-card hover:bg-terminal-hover text-slate-300 hover:text-white transition-all"
+        >
+          <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+        </button>
+
+        <!-- CSV / Print Summary Export -->
+        <button 
+          onclick="exportDashboardData()" 
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold transition-all shadow-sm"
+        >
+          <i class="fa-solid fa-download"></i>
+          <span>Export Summary</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Module Filter Tabs -->
+    <div class="max-w-[1720px] mx-auto mt-2.5 pt-2 border-t border-terminal-border/60 flex items-center gap-1.5 overflow-x-auto text-xs pb-1">
+      <button onclick="switchTab('all')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all active-tab bg-terminal-gold text-slate-950 font-bold" data-target="all">All Modules</button>
+      <button onclick="switchTab('indices')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="indices">Index Dashboard</button>
+      <button onclick="switchTab('rates')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="rates">Rates & Sentiment</button>
+      <button onclick="switchTab('flows')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="flows">FII & DII Flows</button>
+      <button onclick="switchTab('rankings')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="rankings">Sector & Global Ranks</button>
+      <button onclick="switchTab('ipos')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="ipos">IPO Tracker</button>
+      <button onclick="switchTab('mutualfunds')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="mutualfunds">Mutual Funds</button>
+      <button onclick="switchTab('calendar')" class="tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all" data-target="calendar">Economic Calendar</button>
+    </div>
+  </header>
+
+  <!-- Macro Economic Transmission Pipeline (Interactive Banner) -->
+  <section class="max-w-[1720px] mx-auto w-full px-4 lg:px-6 pt-3 pb-1">
+    <div class="glass-panel rounded-xl p-2.5 sm:p-3 border border-red-500/30 bg-gradient-to-r from-red-950/30 via-terminal-card to-emerald-950/30">
+      <div class="flex items-center justify-between mb-1.5 px-1">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-spin"></i> Macro Economic Transmission Cycle (Rule of Thumb)
+        </span>
+        <span class="text-[10px] text-slate-400 font-mono">Interactive Financial Flow</span>
+      </div>
+      
+      <div class="flex items-center gap-2 overflow-x-auto py-1 text-xs font-mono font-medium text-slate-200">
+        <div class="flex-shrink-0 px-2.5 py-1 bg-red-900/40 border border-red-700/60 rounded-md text-red-200 flex items-center gap-1">
+          Crude oil <i class="fa-solid fa-arrow-up text-red-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+        
+        <div class="flex-shrink-0 px-2.5 py-1 bg-red-900/40 border border-red-700/60 rounded-md text-red-200 flex items-center gap-1">
+          Inflation <i class="fa-solid fa-arrow-up text-red-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-red-900/40 border border-red-700/60 rounded-md text-red-200 flex items-center gap-1">
+          Interest rate <i class="fa-solid fa-arrow-up text-red-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-amber-900/40 border border-amber-700/60 rounded-md text-amber-200 flex items-center gap-1">
+          Bond yield <i class="fa-solid fa-arrow-up text-amber-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-rose-950/60 border border-rose-700/60 rounded-md text-rose-300 flex items-center gap-1">
+          Stocks, Gold <i class="fa-solid fa-arrow-down text-rose-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-sky-900/40 border border-sky-700/60 rounded-md text-sky-200 flex items-center gap-1">
+          FD & Loans <i class="fa-solid fa-arrow-up text-sky-400"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-purple-900/40 border border-purple-700/60 rounded-md text-purple-200 flex items-center gap-1">
+          Money printing <i class="fa-solid fa-rotate text-purple-300"></i>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-500 text-xs"></i>
+
+        <div class="flex-shrink-0 px-2.5 py-1 bg-emerald-900/40 border border-emerald-600/70 rounded-md text-emerald-200 flex items-center gap-1 font-bold shadow-sm">
+          Market rising <i class="fa-solid fa-arrow-trend-up text-emerald-400"></i>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="max-w-[1720px] mx-auto w-full px-4 lg:px-6 py-4 flex-1 space-y-6">
+
+    <!-- SECTION: MACRO RATES & SENTIMENT GAUGES -->
+    <section id="sec-rates" class="module-section space-y-4">
+      <div class="flex items-center justify-between border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-terminal-gold text-lg"></i>
+          <h2 class="text-base font-bold text-white tracking-wide uppercase">RATES & YIELDS BENCHMARK</h2>
+        </div>
+        <span class="text-xs font-mono text-slate-400">Fed | India 10Y | Repo | Fear & Greed</span>
+      </div>
+
+      <!-- Top Yields Baseline Table & Key Gauges Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Sovereign Yields Table (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">Key Sovereign Baselines</span>
+              <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">MarketWatch & CNBC</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-mono text-xs">
+                <thead>
+                  <tr class="border-b border-terminal-border text-slate-400 uppercase text-[11px]">
+                    <th class="pb-2">Country / Asset</th>
+                    <th class="pb-2">Metric Name</th>
+                    <th class="pb-2 text-right">Baseline</th>
+                    <th class="pb-2 text-right">NEW</th>
+                    <th class="pb-2 text-right">OLD</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-terminal-border/50">
+                  <tr class="hover:bg-terminal-card transition-colors">
+                    <td class="py-2.5 font-semibold text-white flex items-center gap-1.5">
+                      <span class="text-sm">🇺🇸</span> United States
+                    </td>
+                    <td class="py-2.5 text-slate-300">Fed Interest Rate</td>
+                    <td class="py-2.5 text-right font-bold text-terminal-gold">3.75%</td>
+                    <td class="py-2.5 text-right font-bold text-terminal-gold">3.75%</td>
+                    <td class="py-2.5 text-right text-slate-400">3.75%</td>
+                  </tr>
+                  <tr class="hover:bg-terminal-card transition-colors">
+                    <td class="py-2.5 font-semibold text-white flex items-center gap-1.5">
+                      <span class="text-sm">🇮🇳</span> India
+                    </td>
+                    <td class="py-2.5 text-slate-300">10Y Sovereign Bond</td>
+                    <td class="py-2.5 text-right font-bold text-terminal-gold">6.85%</td>
+                    <td class="py-2.5 text-right font-bold text-terminal-gold">6.85%</td>
+                    <td class="py-2.5 text-right text-slate-400">6.85%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- US Investors in Indian Market Return Box -->
+          <div class="mt-4 pt-3 border-t border-terminal-border/70 grid grid-cols-2 gap-3">
+            <div class="bg-terminal-surface/90 p-3 rounded-lg border border-terminal-border text-center">
+              <div class="text-[11px] text-slate-400 font-sans mb-1">Actual US Investors Return (IN)</div>
+              <div class="text-2xl font-black font-mono text-white" id="actualUSReturn">5.53%</div>
+              <div class="text-[10px] text-slate-400 font-mono mt-0.5">FX Adjusted</div>
+            </div>
+            <div class="bg-terminal-surface/90 p-3 rounded-lg border border-terminal-border text-center">
+              <div class="text-[11px] text-slate-400 font-sans mb-1">Expected US Investors Return (IN)</div>
+              <div class="text-2xl font-black font-mono text-emerald-400" id="expectedUSReturn">8.27%</div>
+              <div class="text-[10px] text-emerald-500/80 font-mono mt-0.5">+2.74% Spread Target</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Key Metrics Cards with Fear/Greed Gauges (7 Cols) -->
+        <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          
+          <!-- IND Repo Rate -->
+          <div class="glass-panel rounded-xl p-3.5 flex flex-col justify-between text-center border-t-2 border-t-terminal-gold">
+            <div class="text-[11px] font-mono text-slate-400 uppercase font-semibold">IND REPO RATE</div>
+            <div class="my-2">
+              <span class="text-3xl sm:text-4xl font-black font-mono text-terminal-gold">5.50%</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400">
+              old: <span class="text-slate-300">5.25%</span>
+              <span class="text-red-400 font-bold ml-1">▲ 25 bps</span>
+            </div>
+          </div>
+
+          <!-- BTC Fear & Greed Gauge -->
+          <div class="glass-panel rounded-xl p-3 flex flex-col justify-between items-center text-center border-t-2 border-t-emerald-500">
+            <div class="text-[11px] font-mono text-slate-400 uppercase font-semibold">FEAR / GREED BTC</div>
+            <!-- Canvas Gauge -->
+            <div class="relative w-28 h-16 flex items-end justify-center my-1">
+              <canvas id="btcGaugeCanvas" width="112" height="64"></canvas>
+              <div class="absolute bottom-0 text-xl font-black font-mono text-emerald-400">57</div>
+            </div>
+            <div class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Greed</div>
+          </div>
+
+          <!-- Nifty 50 Fear & Greed Gauge -->
+          <div class="glass-panel rounded-xl p-3 flex flex-col justify-between items-center text-center border-t-2 border-t-red-500">
+            <div class="text-[11px] font-mono text-slate-400 uppercase font-semibold">FEAR / GREED NIFTY</div>
+            <!-- Canvas Gauge -->
+            <div class="relative w-28 h-16 flex items-end justify-center my-1">
+              <canvas id="niftyGaugeCanvas" width="112" height="64"></canvas>
+              <div class="absolute bottom-0 text-xl font-black font-mono text-rose-400">26</div>
+            </div>
+            <div class="text-xs font-bold text-rose-400 uppercase tracking-wide">Fear</div>
+          </div>
+
+          <!-- US 10Y Yield -->
+          <div class="glass-panel rounded-xl p-3.5 flex flex-col justify-between text-center border-t-2 border-t-cyan-500">
+            <div class="text-[11px] font-mono text-slate-400 uppercase font-semibold">US 10Y YIELD</div>
+            <div class="my-2">
+              <span class="text-3xl sm:text-4xl font-black font-mono text-cyan-400" id="us10yVal">5.24%</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400 flex items-center justify-center gap-1">
+              <span>Benchmark Peak</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: INDEX DASHBOARD (28 ASSETS & BENCHMARKS) -->
+    <section id="sec-indices" class="module-section space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-cubes-stacked text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">INDEX DASHBOARD</h2>
+            <p class="text-[11px] text-slate-400 font-mono">SWING & MONEY FLOW SIGNALS (GREEN = ON, RED = OFF, N/A = NOT APPLICABLE)</p>
+          </div>
+        </div>
+
+        <!-- Filter Buttons for Index Table -->
+        <div class="flex items-center gap-1.5 flex-wrap font-mono text-xs">
+          <button onclick="filterIndices('ALL')" class="idx-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold" data-filter="ALL">All (28)</button>
+          <button onclick="filterIndices('SWING_TRUE')" class="idx-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="SWING_TRUE">Swing: TRUE</button>
+          <button onclick="filterIndices('MF_TRUE')" class="idx-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="MF_TRUE">Money Flow: TRUE</button>
+          <button onclick="filterIndices('SECTOR')" class="idx-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="SECTOR">Sectors</button>
+          <button onclick="filterIndices('GLOBAL_CRYPTO')" class="idx-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="GLOBAL_CRYPTO">Global & Crypto</button>
+        </div>
+      </div>
+
+      <!-- 2-Column Responsive Layout as shown in Slide 2 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Left Table (Column A) -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <table class="w-full text-left font-mono text-xs">
+            <thead class="bg-[#0b1325] text-slate-300 border-b border-terminal-border uppercase text-[11px]">
+              <tr>
+                <th class="py-2.5 px-3">INDEX / ASSET</th>
+                <th class="py-2.5 px-3 text-right">CURT_PRICE</th>
+                <th class="py-2.5 px-3 text-center">SWING</th>
+                <th class="py-2.5 px-3 text-center">MONEY FLOW</th>
+              </tr>
+            </thead>
+            <tbody id="indicesTableLeft" class="divide-y divide-terminal-border/50">
+              <!-- Injected by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Right Table (Column B) -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <table class="w-full text-left font-mono text-xs">
+            <thead class="bg-[#0b1325] text-slate-300 border-b border-terminal-border uppercase text-[11px]">
+              <tr>
+                <th class="py-2.5 px-3">INDEX / ASSET</th>
+                <th class="py-2.5 px-3 text-right">CURT_PRICE</th>
+                <th class="py-2.5 px-3 text-center">SWING</th>
+                <th class="py-2.5 px-3 text-center">MONEY FLOW</th>
+              </tr>
+            </thead>
+            <tbody id="indicesTableRight" class="divide-y divide-terminal-border/50">
+              <!-- Injected by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: FII & DII FLOWS (₹ CR) -->
+    <section id="sec-flows" class="module-section space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-transfer text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">FII & DII INSTITUTIONAL FLOWS (₹ Cr)</h2>
+            <p class="text-[11px] text-slate-400 font-mono">Net cumulative market liquidity tracker</p>
+          </div>
+        </div>
+
+        <!-- View Switcher: Monthly vs Daily -->
+        <div class="flex items-center gap-2 font-mono text-xs">
+          <button onclick="toggleFlowView('monthly')" id="flowBtnMonthly" class="px-3 py-1.5 rounded-lg bg-terminal-gold text-slate-950 font-bold transition-all">Monthly Flows</button>
+          <button onclick="toggleFlowView('daily')" id="flowBtnDaily" class="px-3 py-1.5 rounded-lg bg-terminal-card border border-terminal-border text-slate-300 hover:text-white transition-all">Daily Flows (This Week)</button>
+        </div>
+      </div>
+
+      <!-- Flows Summary Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+        <div class="glass-panel p-3 rounded-xl border-l-4 border-l-rose-500">
+          <span class="text-[11px] text-slate-400 uppercase">Total FII Net (12M)</span>
+          <div class="text-lg sm:text-xl font-black text-rose-400 mt-1">-₹4,96,164.35 Cr</div>
+          <span class="text-[10px] text-rose-500/80">Heavy foreign outflow</span>
+        </div>
+        <div class="glass-panel p-3 rounded-xl border-l-4 border-l-emerald-500">
+          <span class="text-[11px] text-slate-400 uppercase">Total DII Net (12M)</span>
+          <div class="text-lg sm:text-xl font-black text-emerald-400 mt-1">+₹8,48,241.18 Cr</div>
+          <span class="text-[10px] text-emerald-500/80">Strong domestic absorption</span>
+        </div>
+        <div class="glass-panel p-3 rounded-xl border-l-4 border-l-rose-400">
+          <span class="text-[11px] text-slate-400 uppercase">Oct 2026 FII Net</span>
+          <div class="text-lg sm:text-xl font-black text-rose-400 mt-1">-₹39,778.51 Cr</div>
+          <span class="text-[10px] text-slate-400">Sell: ₹1,17,649 Cr</span>
+        </div>
+        <div class="glass-panel p-3 rounded-xl border-l-4 border-l-emerald-400">
+          <span class="text-[11px] text-slate-400 uppercase">Oct 2026 DII Net</span>
+          <div class="text-lg sm:text-xl font-black text-emerald-400 mt-1">+₹40,355.32 Cr</div>
+          <span class="text-[10px] text-slate-400">Buy: ₹1,23,380 Cr</span>
+        </div>
+      </div>
+
+      <!-- Flow Chart & Table Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Interactive Chart.js Flow Canvas (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel rounded-xl p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-slate-300 uppercase">Net Flow Comparison (FII vs DII)</span>
+            <span class="text-[10px] text-terminal-gold font-mono">₹ in Crores</span>
+          </div>
+          <div class="relative h-64 sm:h-72 w-full">
+            <canvas id="flowsChartCanvas"></canvas>
+          </div>
+          <div class="text-[11px] font-mono text-slate-400 text-center mt-2">
+            <span class="text-rose-400">■ FII Net Outflows</span> &nbsp;|&nbsp; <span class="text-emerald-400">■ DII Net Inflows</span>
+          </div>
+        </div>
+
+        <!-- Table Display (7 Cols) -->
+        <div class="lg:col-span-7 glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          
+          <!-- Monthly Table -->
+          <div id="monthlyFlowTableContainer" class="overflow-x-auto max-h-[360px]">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-[#0b1325] text-slate-300 border-b border-terminal-border uppercase text-[11px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Month</th>
+                  <th class="py-2 px-2 text-right">FII Buy</th>
+                  <th class="py-2 px-2 text-right">FII Sell</th>
+                  <th class="py-2 px-2 text-right">FII Net</th>
+                  <th class="py-2 px-2 text-right">DII Buy</th>
+                  <th class="py-2 px-2 text-right">DII Sell</th>
+                  <th class="py-2 px-3 text-right">DII Net</th>
+                </tr>
+              </thead>
+              <tbody id="monthlyFlowsBody" class="divide-y divide-terminal-border/50">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Daily Table (Hidden by default) -->
+          <div id="dailyFlowTableContainer" class="hidden overflow-x-auto max-h-[360px]">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-[#0b1325] text-slate-300 border-b border-terminal-border uppercase text-[11px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Date</th>
+                  <th class="py-2 px-2 text-right">FII Buy</th>
+                  <th class="py-2 px-2 text-right">FII Sell</th>
+                  <th class="py-2 px-2 text-right">FII Net</th>
+                  <th class="py-2 px-2 text-right">DII Buy</th>
+                  <th class="py-2 px-2 text-right">DII Sell</th>
+                  <th class="py-2 px-3 text-right">DII Net</th>
+                </tr>
+              </thead>
+              <tbody id="dailyFlowsBody" class="divide-y divide-terminal-border/50">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: RANKINGS (SECTOR RANKING & GLOBAL INDEX RANKING) -->
+    <section id="sec-rankings" class="module-section space-y-4">
+      <div class="flex items-center justify-between border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-ranking-star text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">MARKET LEADERBOARDS & MOMENTUM</h2>
+            <p class="text-[11px] text-slate-400 font-mono">Current Week vs Previous Week Rank Shifts</p>
+          </div>
+        </div>
+        <span class="text-xs font-mono text-slate-400">Green = Top 5 / Up &nbsp;|&nbsp; Red = Bottom Tier / Down</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        <!-- Sector Ranking Panel -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <div class="bg-[#0b1325] px-4 py-2.5 border-b border-terminal-border flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-terminal-gold"></i> SECTOR RANKING
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">20 Tracked Sectors</span>
+          </div>
+          <div class="overflow-x-auto max-h-[460px]">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-terminal-card/80 text-slate-400 border-b border-terminal-border uppercase text-[11px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Sector Name</th>
+                  <th class="py-2 px-2 text-right">Price</th>
+                  <th class="py-2 px-2 text-center">C Week</th>
+                  <th class="py-2 px-2 text-center">Last Wk</th>
+                  <th class="py-2 px-3 text-center">Move</th>
+                </tr>
+              </thead>
+              <tbody id="sectorRankingBody" class="divide-y divide-terminal-border/50">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Global Index Ranking Panel -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <div class="bg-[#0b1325] px-4 py-2.5 border-b border-terminal-border flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+              <i class="fa-solid fa-globe text-terminal-cyan"></i> GLOBAL INDEX RANKING
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">12 Worldwide Benchmarks</span>
+          </div>
+          <div class="overflow-x-auto max-h-[460px]">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-terminal-card/80 text-slate-400 border-b border-terminal-border uppercase text-[11px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Index / Market</th>
+                  <th class="py-2 px-3 text-center">C Week Rank</th>
+                  <th class="py-2 px-3 text-center">Pre Week Rank</th>
+                  <th class="py-2 px-4 text-center">Move</th>
+                </tr>
+              </thead>
+              <tbody id="globalRankingBody" class="divide-y divide-terminal-border/50">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: IPO TRACKER & RECENT LISTINGS -->
+    <section id="sec-ipos" class="module-section space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-rocket text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">PRIMARY MARKET & IPO PIPELINE</h2>
+            <p class="text-[11px] text-slate-400 font-mono">Upcoming Subscriptions & Listing-Day Performance</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="filterIPOs('ALL')" class="ipo-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold" data-filter="ALL">All IPOs</button>
+          <button onclick="filterIPOs('Mainboard')" class="ipo-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="Mainboard">Mainboard</button>
+          <button onclick="filterIPOs('SME')" class="ipo-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-filter="SME">SME</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Upcoming IPOs Calendar Table (7 Cols) -->
+        <div class="lg:col-span-7 glass-panel rounded-xl overflow-hidden border border-terminal-border flex flex-col justify-between">
+          <div>
+            <div class="bg-[#0b1325] px-4 py-2.5 border-b border-terminal-border flex items-center justify-between">
+              <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-terminal-gold"></i> IPO CALENDAR: 13–28 OCT 2026
+              </span>
+              <span class="text-[10px] font-mono text-slate-400">Open now & Upcoming</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-mono text-xs">
+                <thead class="bg-terminal-card/80 text-slate-400 border-b border-terminal-border uppercase text-[10px]">
+                  <tr>
+                    <th class="py-2 px-3">IPO Name</th>
+                    <th class="py-2 px-1">Type</th>
+                    <th class="py-2 px-1">Dates</th>
+                    <th class="py-2 px-2 text-right">Band (₹)</th>
+                    <th class="py-2 px-2 text-right">Size (₹ Cr)</th>
+                    <th class="py-2 px-1 text-center">Lot</th>
+                    <th class="py-2 px-2 text-right">Listing</th>
+                    <th class="py-2 px-3 text-right">GMP (Rs / %)</th>
+                  </tr>
+                </thead>
+                <tbody id="upcomingIposBody" class="divide-y divide-terminal-border/50">
+                  <!-- Injected via JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="p-3 bg-terminal-surface/60 border-t border-terminal-border text-[10px] text-slate-400 font-mono">
+            * Jio Platforms: Indicative band as reported by IPO trackers. OFS = Offer for Sale. GMP is unofficial grey-market premium.
+          </div>
+        </div>
+
+        <!-- Last Week Listings with Visual Gain Bar (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel rounded-xl p-4 border border-terminal-border flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3 border-b border-terminal-border pb-2">
+              <div>
+                <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-1.5">
+                  <i class="fa-solid fa-chart-column text-terminal-cyan"></i> LAST WEEK LISTINGS (5-9 OCT)
+                </span>
+                <span class="text-[10px] text-slate-400 font-mono">Listing-day return vs issue price</span>
+              </div>
+              <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[11px] font-mono font-bold">
+                Avg: +9.59%
+              </span>
+            </div>
+
+            <!-- Custom Listing Visual Bars -->
+            <div class="space-y-2.5 font-mono text-xs" id="listingsBarContainer">
+              <!-- Injected via JavaScript -->
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-terminal-border text-[11px] text-slate-400 flex items-center justify-between font-mono">
+            <span>8 listings: 5 above issue, 2 below, 1 flat</span>
+            <span class="text-terminal-gold">Orient Cables (+65.44%)</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: TOP 3 MUTUAL FUNDS BY AUM -->
+    <section id="sec-mutualfunds" class="module-section space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-piggy-bank text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">TOP 3 MUTUAL FUNDS BY AUM</h2>
+            <p class="text-[11px] text-slate-400 font-mono">Direct Plan - Growth | Compound Annualised Returns %</p>
+          </div>
+        </div>
+
+        <!-- Fund Category Filter Tabs -->
+        <div class="flex items-center gap-1.5 flex-wrap font-mono text-xs">
+          <button onclick="filterFunds('ALL')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold" data-cat="ALL">All Categories</button>
+          <button onclick="filterFunds('Large Cap')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-cat="Large Cap">Large Cap</button>
+          <button onclick="filterFunds('Mid Cap')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-cat="Mid Cap">Mid Cap</button>
+          <button onclick="filterFunds('Small Cap')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-cat="Small Cap">Small Cap</button>
+          <button onclick="filterFunds('Flexi Cap')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-cat="Flexi Cap">Flexi Cap</button>
+          <button onclick="filterFunds('Fixed Income')" class="fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white" data-cat="Fixed Income">Fixed Income</button>
+        </div>
+      </div>
+
+      <!-- Mutual Funds Table -->
+      <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left font-mono text-xs">
+            <thead class="bg-[#0b1325] text-slate-300 border-b border-terminal-border uppercase text-[11px]">
+              <tr>
+                <th class="py-2.5 px-3">CATEGORY</th>
+                <th class="py-2.5 px-2 text-center">RANK</th>
+                <th class="py-2.5 px-3">FUND NAME</th>
+                <th class="py-2.5 px-3 text-right">AUM (₹ Cr)</th>
+                <th class="py-2.5 px-3 text-right">1Y %</th>
+                <th class="py-2.5 px-3 text-right">3Y %</th>
+                <th class="py-2.5 px-3 text-right">5Y %</th>
+                <th class="py-2.5 px-4 text-right">7Y % *</th>
+              </tr>
+            </thead>
+            <tbody id="mutualFundsBody" class="divide-y divide-terminal-border/50">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <div class="p-3 bg-terminal-surface/60 border-t border-terminal-border text-[11px] text-slate-400 font-mono flex flex-col sm:flex-row justify-between gap-1">
+          <span>* Data shows 7Y as the benchmark long-term compound window. Fixed Income = Corporate Bond funds.</span>
+          <span>Source: AMFI / Groww tables</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: ECONOMIC CALENDAR -->
+    <section id="sec-calendar" class="module-section space-y-4">
+      <div class="flex items-center justify-between border-b border-terminal-border pb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days text-terminal-gold text-lg"></i>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-wide uppercase">ECONOMIC CALENDAR: UPCOMING EVENTS</h2>
+            <p class="text-[11px] text-slate-400 font-mono">Key Macro Triggers (India & United States)</p>
+          </div>
+        </div>
+        <span class="text-xs font-mono text-terminal-gold font-semibold">Gold = High Impact Events</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- India Economic Events -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <div class="bg-gradient-to-r from-orange-950/40 via-terminal-card to-emerald-950/40 px-4 py-2.5 border-b border-terminal-border flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+              <span class="text-base">🇮🇳</span> INDIA UPCOMING EVENTS
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">RBI & MoSPI Releases</span>
+          </div>
+
+          <div class="p-3 space-y-2.5" id="indiaCalendarList">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+
+        <!-- United States Economic Events -->
+        <div class="glass-panel rounded-xl overflow-hidden border border-terminal-border">
+          <div class="bg-gradient-to-r from-blue-950/40 via-terminal-card to-red-950/40 px-4 py-2.5 border-b border-terminal-border flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-white uppercase flex items-center gap-2">
+              <span class="text-base">🇺🇸</span> UNITED STATES UPCOMING EVENTS
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">Fed & BLS Releases (ET)</span>
+          </div>
+
+          <div class="p-3 space-y-2.5" id="usCalendarList">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- INSTITUTIONAL FOOTER -->
+  <footer class="mt-8 bg-[#050811] border-t border-terminal-border/80 px-4 lg:px-6 py-6 text-xs font-mono text-slate-400">
+    <div class="max-w-[1720px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      
+      <div class="flex items-center gap-3">
+        <span class="bg-terminal-gold text-slate-950 px-2 py-0.5 rounded font-black text-xs">#MVD</span>
+        <span class="text-slate-300 font-bold">WEEKLY MARKET DASHBOARD</span>
+        <span class="text-slate-600">|</span>
+        <span>Data as of 14 Oct 2026</span>
+      </div>
+
+      <!-- Regulatory Disclaimer Box -->
+      <div class="max-w-2xl text-center md:text-right border border-red-500/20 bg-red-950/10 px-3 py-1.5 rounded-lg text-slate-300 text-[11px]">
+        <strong class="text-amber-400">Disclaimer:</strong> This dashboard is for education only. It is not investment advice, and I am not a SEBI-registered advisor. Do your own research before investing.
+      </div>
+      
+    </div>
+  </footer>
+
+  <!-- Notification Toast Container -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 bg-terminal-card border border-terminal-gold text-slate-100 text-xs font-mono px-4 py-3 rounded-lg shadow-xl flex items-center gap-2.5 transform translate-y-20 opacity-0 transition-all duration-300">
+    <i class="fa-solid fa-circle-info text-terminal-gold text-sm" id="toastIcon"></i>
+    <span id="toastMsg">Exporting dashboard data...</span>
+  </div>
+
+  <script>
+    /* Global Application State */
+    const appState = {
+      isAudioEnabled: false,
+      isSimulationActive: true,
+      simulationInterval: null,
+      currentTab: 'all',
+      searchQuery: '',
+      activeIndexFilter: 'ALL',
+      activeIPOFilter: 'ALL',
+      activeFundFilter: 'ALL'
+    };
+
+    /* Comprehensive Financial Data Structure mapped exactly from user slides */
+    const rawData = {
+      // 28 Indices & Assets from Slide 2
+      indices: [
+        { name: "NIFTY_IT", price: 29830.10, rawPrice: 29830.10, swing: false, moneyFlow: true, type: "SECTOR", col: "L" },
+        { name: "SMALLCAP", price: 47.97, rawPrice: 47.97, swing: false, moneyFlow: false, type: "BROAD", col: "L" },
+        { name: "NIFTY_FIN_SERVICE", price: 25228.55, rawPrice: 25228.55, swing: false, moneyFlow: true, type: "SECTOR", col: "L" },
+        { name: "NIFTY_REALTY", price: 829.95, rawPrice: 829.95, swing: false, moneyFlow: false, type: "SECTOR", col: "L" },
+        { name: "NIFTY_METAL", price: 12088.25, rawPrice: 12088.25, swing: false, moneyFlow: false, type: "SECTOR", col: "L" },
+        { name: "NIFTY_BANK", price: 55481.05, rawPrice: 55481.05, swing: false, moneyFlow: true, type: "SECTOR", col: "L", highlight: true },
+        { name: "NIFTY_MIDCAP_50", price: 16974.00, rawPrice: 16974.00, swing: false, moneyFlow: false, type: "BROAD", col: "L" },
+        { name: "NIFTY_PVT_BANK", price: 27324.35, rawPrice: 27324.35, swing: true, moneyFlow: true, type: "SECTOR", col: "L" },
+        { name: "NIFTY_PHARMA", price: 26075.00, rawPrice: 26075.00, swing: false, moneyFlow: false, type: "SECTOR", col: "L" },
+        { name: "NIFTY_PSU_BANK", price: 8146.55, rawPrice: 8146.55, swing: false, moneyFlow: true, type: "SECTOR", col: "L" },
+        { name: "NIFTY_50", price: 22721.95, rawPrice: 22721.95, swing: false, moneyFlow: false, type: "BROAD", col: "L", highlight: true },
+        { name: "NIFTY_MEDIA", price: 1631.70, rawPrice: 1631.70, swing: true, moneyFlow: true, type: "SECTOR", col: "L" },
+        { name: "NIFTY_CONSUMPTION", price: 10948.60, rawPrice: 10948.60, swing: false, moneyFlow: false, type: "SECTOR", col: "L" },
+        { name: "NIFTY_INFRA", price: 8578.50, rawPrice: 8578.50, swing: false, moneyFlow: false, type: "SECTOR", col: "L" },
+        
+        // Right Column
+        { name: "NIFTY_AUTO", price: 25391.85, rawPrice: 25391.85, swing: false, moneyFlow: false, type: "SECTOR", col: "R" },
+        { name: "NIFTY_FMCG", price: 44731.15, rawPrice: 44731.15, swing: false, moneyFlow: false, type: "SECTOR", col: "R" },
+        { name: "BSE-OILGAS", price: 24199.47, rawPrice: 24199.47, swing: false, moneyFlow: false, type: "SECTOR", col: "R" },
+        { name: "BZW88", price: 106.04, rawPrice: 106.04, currency: "$", swing: true, moneyFlow: null, type: "GLOBAL_CRYPTO", col: "R" },
+        { name: "GOLDBEES", price: 121.01, rawPrice: 121.01, swing: false, moneyFlow: false, type: "COMMODITY", col: "R" },
+        { name: "NIFTY_500", price: 22090.00, rawPrice: 22090.00, swing: false, moneyFlow: false, type: "BROAD", col: "R" },
+        { name: "NIFTY_200", price: 13190.55, rawPrice: 13190.55, swing: false, moneyFlow: false, type: "BROAD", col: "R" },
+        { name: "S&P 500 (INX)", price: 7788.36, rawPrice: 7788.36, currency: "", swing: true, moneyFlow: false, type: "GLOBAL_CRYPTO", col: "R" },
+        { name: "DOW JONES (DJI)", price: 51754.92, rawPrice: 51754.92, currency: "", swing: false, moneyFlow: true, type: "GLOBAL_CRYPTO", col: "R" },
+        { name: "INDIA_VIX", price: null, rawPrice: null, display: "N/A", swing: null, moneyFlow: true, type: "VOLATILITY", col: "R" },
+        { name: "USDINR", price: 95.01, rawPrice: 95.01, swing: false, moneyFlow: null, type: "FOREX", col: "R" },
+        { name: "BTCUSD", price: 83263.62, rawPrice: 83263.62, currency: "$", swing: true, moneyFlow: null, type: "GLOBAL_CRYPTO", col: "R" },
+        { name: "ETHUSD", price: 2506.08, rawPrice: 2506.08, currency: "$", swing: false, moneyFlow: false, type: "GLOBAL_CRYPTO", col: "R" },
+        { name: "US 10Y YIELD", price: 5.24, rawPrice: 5.24, currency: "%", swing: null, moneyFlow: null, type: "RATES", col: "R" }
+      ],
+
+      // Monthly FII & DII Flows (Slide 4)
+      monthlyFlows: [
+        { month: "Oct 2026", fiiBuy: "77,870.99", fiiSell: "117,649.50", fiiNet: -39778.51, diiBuy: "123,380.90", diiSell: "83,025.58", diiNet: 40355.32 },
+        { month: "Sep 2026", fiiBuy: "313,522.98", fiiSell: "357,535.80", fiiNet: -44012.82, diiBuy: "367,838.29", diiSell: "291,808.00", diiNet: 76030.29 },
+        { month: "Aug 2026", fiiBuy: "350,338.37", fiiSell: "357,993.40", fiiNet: -7655.03, diiBuy: "371,159.94", diiSell: "311,542.15", diiNet: 59617.79 },
+        { month: "Jul 2026", fiiBuy: "324,243.17", fiiSell: "331,504.72", fiiNet: -7261.55, diiBuy: "403,703.79", diiSell: "369,159.14", diiNet: 34544.65 },
+        { month: "Jun 2026", fiiBuy: "351,806.37", fiiSell: "400,591.97", fiiNet: -48785.60, diiBuy: "442,549.54", diiSell: "352,957.98", diiNet: 89591.56 },
+        { month: "May 2026", fiiBuy: "350,499.19", fiiSell: "409,403.87", fiiNet: -58904.68, diiBuy: "361,216.33", diiSell: "276,250.70", diiNet: 84965.63 },
+        { month: "Apr 2026", fiiBuy: "323,047.56", fiiSell: "390,347.40", fiiNet: -67299.84, diiBuy: "397,287.39", diiSell: "341,459.36", diiNet: 55828.03 },
+        { month: "Mar 2026", fiiBuy: "278,800.39", fiiSell: "401,340.80", fiiNet: -122540.41, diiBuy: "414,657.07", diiSell: "271,696.70", diiNet: 142960.37 },
+        { month: "Feb 2026", fiiBuy: "339,315.97", fiiSell: "345,956.73", fiiNet: -6640.76, diiBuy: "346,722.22", diiSell: "308,299.11", diiNet: 38423.11 },
+        { month: "Jan 2026", fiiBuy: "300,257.57", fiiSell: "341,692.79", fiiNet: -41435.22, diiBuy: "364,373.29", diiSell: "295,152.55", diiNet: 69220.74 },
+        { month: "Dec 2025", fiiBuy: "249,054.90", fiiSell: "283,404.52", fiiNet: -34349.62, diiBuy: "356,905.61", diiSell: "277,285.70", diiNet: 79619.91 },
+        { month: "Nov 2025", fiiBuy: "307,573.59", fiiSell: "325,073.90", fiiNet: -17500.31, diiBuy: "318,136.71", diiSell: "241,052.93", diiNet: 77083.78 }
+      ],
+
+      // Daily FII & DII Flows (Slide 4)
+      dailyFlows: [
+        { date: "12-10-2026", fiiBuy: "12,583.21", fiiSell: "14,291.69", fiiNet: -1708.48, diiBuy: "15,506.73", diiSell: "12,461.71", diiNet: 3045.02 },
+        { date: "09-10-2026", fiiBuy: "10,373.99", fiiSell: "13,942.89", fiiNet: -3568.90, diiBuy: "15,626.53", diiSell: "10,883.27", diiNet: 4743.26 },
+        { date: "08-10-2026", fiiBuy: "15,725.45", fiiSell: "28,669.03", fiiNet: -12943.58, diiBuy: "22,987.97", diiSell: "12,284.86", diiNet: 10703.11 },
+        { date: "07-10-2026", fiiBuy: "12,577.96", fiiSell: "18,699.33", fiiNet: -6121.37, diiBuy: "18,707.03", diiSell: "14,110.46", diiNet: 4596.57 },
+        { date: "06-10-2026", fiiBuy: "11,258.72", fiiSell: "14,220.02", fiiNet: -2961.30, diiBuy: "20,146.40", diiSell: "15,057.48", diiNet: 5088.92 },
+        { date: "05-10-2026", fiiBuy: "15,674.61", fiiSell: "20,373.75", fiiNet: -4699.14, diiBuy: "20,492.93", diiSell: "15,311.31", diiNet: 5181.62 },
+        { date: "01-10-2026", fiiBuy: "12,260.26", fiiSell: "21,744.48", fiiNet: -9484.22, diiBuy: "25,420.04", diiSell: "15,378.20", diiNet: 10041.84 }
+      ],
+
+      // Sector Rankings (Slide 5)
+      sectorRankings: [
+        { name: "NIFTY_IT", price: "₹29,830.10", currentRank: 1, lastRank: 1, move: 0 },
+        { name: "NIFTY_MEDIA", price: "₹1,631.70", currentRank: 2, lastRank: 2, move: 0 },
+        { name: "NIFTY_PSU_BANK", price: "₹8,146.55", currentRank: 3, lastRank: 6, move: 3 },
+        { name: "NIFTY_FIN_SERVICE", price: "₹25,228.55", currentRank: 4, lastRank: 4, move: 0 },
+        { name: "NIFTY_PVT_BANK", price: "₹27,324.35", currentRank: 5, lastRank: 3, move: -2 },
+        { name: "NIFTY_BANK", price: "₹55,481.05", currentRank: 6, lastRank: 5, move: -1 },
+        { name: "NIFTY_AUTO", price: "₹25,391.85", currentRank: 7, lastRank: 15, move: 8 },
+        { name: "NIFTY_REALTY", price: "₹829.95", currentRank: 8, lastRank: 8, move: 0 },
+        { name: "NIFTY_FMCG", price: "₹44,731.15", currentRank: 9, lastRank: 7, move: -2 },
+        { name: "NIFTY_CONSUMPTION", price: "₹10,948.60", currentRank: 10, lastRank: 12, move: 2 },
+        { name: "HEALTHY", price: "₹16.37", currentRank: 11, lastRank: 19, move: 8 },
+        { name: "NIFTY_PSE", price: "₹9,196.60", currentRank: 12, lastRank: 10, move: -2 },
+        { name: "NIFTY_PHARMA", price: "₹26,075.00", currentRank: 13, lastRank: 16, move: 3 },
+        { name: "NIFTY_CPSE", price: "₹6,051.50", currentRank: 14, lastRank: 17, move: 3 },
+        { name: "NIFTY_INFRA", price: "₹8,578.50", currentRank: 15, lastRank: 11, move: -4 },
+        { name: "NIFTY_ENERGY", price: "₹35,975.90", currentRank: 16, lastRank: 9, move: -7 },
+        { name: "BSE-OILGAS", price: "₹24,199.47", currentRank: 17, lastRank: 13, move: -4 },
+        { name: "NIFTY_COMMODITIES", price: "₹8,955.45", currentRank: 19, lastRank: 18, move: -1 },
+        { name: "NIFTY_METAL", price: "₹12,088.25", currentRank: 20, lastRank: 20, move: 0 }
+      ],
+
+      // Global Index Ranking (Slide 6)
+      globalRankings: [
+        { name: "UK - FTSE 100", currentRank: 1, prevRank: 9, move: 8 },
+        { name: "Brazil - Bovespa", currentRank: 2, prevRank: 1, move: -1 },
+        { name: "Australia", currentRank: 3, prevRank: 5, move: 2 },
+        { name: "USA - Dow Jones", currentRank: 4, prevRank: 6, move: 2 },
+        { name: "Hong Kong", currentRank: 5, prevRank: 11, move: 6 },
+        { name: "India - Sensex", currentRank: 6, prevRank: 7, move: 1, highlight: true },
+        { name: "India - Nifty 50", currentRank: 7, prevRank: 8, move: 1, highlight: true },
+        { name: "USA - S&P 500", currentRank: 8, prevRank: 3, move: -5 },
+        { name: "France - CAC", currentRank: 9, prevRank: 12, move: 3 },
+        { name: "Germany - DAX", currentRank: 10, prevRank: 10, move: 0 },
+        { name: "USA - Nasdaq", currentRank: 11, prevRank: 4, move: -7 },
+        { name: "Japan - Nikkei", currentRank: 12, prevRank: 2, move: -10 }
+      ],
+
+      // Upcoming IPOs (Slide 7)
+      upcomingIpos: [
+        { name: "HD Fire Protect", segment: "Mainboard", opens: "13 Oct", closes: "15 Oct", band: "258-271", size: "712 (OFS)", lot: 55, listing: "21 Oct", gmpRs: "+86", gmpPct: 31.7 },
+        { name: "Fusion CX", segment: "Mainboard", opens: "14 Oct", closes: "16 Oct", band: "275-289", size: "702", lot: 51, listing: "22 Oct", gmpRs: "+20", gmpPct: 6.9 },
+        { name: "Tonbo Imaging India", segment: "Mainboard", opens: "15 Oct", closes: "19 Oct", band: "665-700", size: "852 (OFS)", lot: 21, listing: "23 Oct", gmpRs: "+427", gmpPct: 61.0 },
+        { name: "Sahajanand Medical", segment: "Mainboard", opens: "15 Oct", closes: "19 Oct", band: "327-344", size: "475 (OFS)", lot: 43, listing: "23 Oct", gmpRs: "+36", gmpPct: 10.5 },
+        { name: "Zetwerk Manufacturing", segment: "Mainboard", opens: "15 Oct", closes: "19 Oct", band: "143-151", size: "5,012", lot: 99, listing: "23 Oct", gmpRs: "+18", gmpPct: 11.9 },
+        { name: "Bonfiglioli Transmissions", segment: "Mainboard", opens: "15 Oct", closes: "19 Oct", band: "558-586", size: "2,534 (OFS)", lot: 25, listing: "23 Oct", gmpRs: "+155", gmpPct: 26.5 },
+        { name: "Jio Platforms *", segment: "Mainboard", opens: "21 Oct", closes: "23 Oct", band: "1,065-1,119", size: "TBA", lot: 13, listing: "28 Oct", gmpRs: "+191", gmpPct: 17.1 },
+        { name: "Ravita Engineering", segment: "SME", opens: "13 Oct", closes: "15 Oct", band: "105-112", size: "116.05 (Fresh)", lot: "1,200", listing: "21 Oct", gmpRs: "+4", gmpPct: 3.6 },
+        { name: "Vaibhav Vyapaar", segment: "SME", opens: "13 Oct", closes: "15 Oct", band: "50-52", size: "TBA", lot: "2,000", listing: "21 Oct", gmpRs: "0", gmpPct: 0 }
+      ],
+
+      // Last Week Listings (Slide 8)
+      lastWeekListings: [
+        { name: "Orient Cables (India)", listed: "05 Oct", issue: 272.00, listingPrice: 450.00, gain: 65.44 },
+        { name: "SRIT India", listed: "06 Oct", issue: 130.00, listingPrice: 148.00, gain: 13.85 },
+        { name: "Nityas Gems & Jewellery", listed: "08 Oct", issue: 75.00, listingPrice: 80.00, gain: 6.67 },
+        { name: "Shah Investor's Home", listed: "06 Oct", issue: 167.00, listingPrice: 171.00, gain: 2.40 },
+        { name: "German Green Steel & Power", listed: "05 Oct", issue: 139.00, listingPrice: 142.00, gain: 2.16 },
+        { name: "Runwal Enterprises", listed: "05 Oct", issue: 305.00, listingPrice: 305.00, gain: 0.00 },
+        { name: "Vishal Nirmiti", listed: "08 Oct", issue: 220.00, listingPrice: 215.00, gain: -2.27 },
+        { name: "Acevector", listed: "05 Oct", issue: 32.00, listingPrice: 28.32, gain: -11.50 }
+      ],
+
+      // Top Mutual Funds by AUM (Slide 9)
+      mutualFunds: [
+        { category: "Large Cap", rank: 1, name: "ICICI Pru Large Cap Fund", aum: "76,352", ret1Y: -8.2, ret3Y: 9.7, ret5Y: 9.8, ret7Y: "14.3%" },
+        { category: "Large Cap", rank: 2, name: "SBI Large Cap Fund", aum: "52,372", ret1Y: -4.2, ret3Y: 8.2, ret5Y: 8.0, ret7Y: "13.1%" },
+        { category: "Large Cap", rank: 3, name: "Nippon India Large Cap Fund", aum: "51,296", ret1Y: -7.5, ret3Y: 9.9, ret5Y: 11.4, ret7Y: "15.3%" },
+        { category: "Mid Cap", rank: 1, name: "HDFC Mid Cap Fund", aum: "1,01,856", ret1Y: 1.5, ret3Y: 15.9, ret5Y: 16.9, ret7Y: "22.4%" },
+        { category: "Mid Cap", rank: 2, name: "Kotak Mid Cap Fund", aum: "71,256", ret1Y: -0.6, ret3Y: 16.1, ret5Y: 14.7, ret7Y: "21.8%" },
+        { category: "Mid Cap", rank: 3, name: "Nippon India Growth Mid Cap", aum: "50,176", ret1Y: 3.3, ret3Y: 17.2, ret5Y: 16.0, ret7Y: "22.9%" },
+        { category: "Small Cap", rank: 1, name: "Nippon India Small Cap Fund", aum: "80,905", ret1Y: 7.3, ret3Y: 14.6, ret5Y: 17.1, ret7Y: "26.5%" },
+        { category: "Small Cap", rank: 2, name: "SBI Small Cap Fund", aum: "41,059", ret1Y: 4.9, ret3Y: 11.0, ret5Y: 12.3, ret7Y: "20.6%" },
+        { category: "Small Cap", rank: 3, name: "HDFC Small Cap Fund", aum: "40,800", ret1Y: -4.0, ret3Y: 9.7, ret5Y: 13.0, ret7Y: "21.1%" },
+        { category: "Flexi Cap", rank: 1, name: "Parag Parikh Flexi Cap Fund", aum: "1,45,070", ret1Y: -4.5, ret3Y: 12.4, ret5Y: 10.8, ret7Y: "19.2%" },
+        { category: "Flexi Cap", rank: 2, name: "HDFC Flexi Cap Fund", aum: "1,08,547", ret1Y: -3.5, ret3Y: 14.7, ret5Y: 15.2, ret7Y: "18.3%" },
+        { category: "Flexi Cap", rank: 3, name: "Kotak Flexi Cap Fund", aum: "56,392", ret1Y: -5.8, ret3Y: 10.3, ret5Y: 9.3, ret7Y: "n/a" },
+        { category: "Fixed Income", rank: 1, name: "HDFC Corporate Bond Fund", aum: "29,478", ret1Y: 3.9, ret3Y: 7.0, ret5Y: 6.2, ret7Y: "6.9%" },
+        { category: "Fixed Income", rank: 2, name: "ICICI Pru Corporate Bond Fund", aum: "28,384", ret1Y: 5.2, ret3Y: 7.3, ret5Y: 6.7, ret7Y: "7.2%" },
+        { category: "Fixed Income", rank: 3, name: "ABSL Corporate Bond Fund", aum: "22,721", ret1Y: 4.1, ret3Y: 7.1, ret5Y: 6.3, ret7Y: "7.0%" }
+      ],
+
+      // Economic Calendar (Slide 10)
+      calendar: {
+        india: [
+          { date: "16 Oct", day: "Fri", daysLeft: "in 2 days", event: "Forex Reserves", details: "RBI weekly data - every Friday", key: true },
+          { date: "28 Oct", day: "Wed", daysLeft: "in 14 days", event: "IIP (Industrial Output)", details: "Sep 2026 data, MoSPI", key: false },
+          { date: "12 Nov", day: "Thu", daysLeft: "in 29 days", event: "Inflation Rate YoY (CPI)", details: "Oct 2026 data, MoSPI", key: true },
+          { date: "30 Nov", day: "Mon", daysLeft: "in 47 days", event: "GDP Growth Rate YoY", details: "Q2 FY27 (Jul-Sep), MoSPI", key: true },
+          { date: "2-4 Dec", day: "Wed", daysLeft: "in 49 days", event: "RBI Interest Rate Decision", details: "MPC meeting. Last: hiked to 5.50% on 7 Oct", key: true }
+        ],
+        us: [
+          { date: "28 Oct", day: "Wed", daysLeft: "in 14 days", event: "Fed Rate Decision (FOMC)", details: "Decision 2:00 PM ET", key: true },
+          { date: "3 Nov", day: "Tue", daysLeft: "in 20 days", event: "Midterm Elections", details: "Election Day - US Congress", key: true },
+          { date: "6 Nov", day: "Fri", daysLeft: "in 23 days", event: "Unemployment Rate", details: "Oct jobs report, 8:30 AM ET (BLS)", key: true },
+          { date: "10 Nov", day: "Tue", daysLeft: "in 27 days", event: "Inflation Rate (CPI)", details: "Oct 2026 data, 8:30 AM ET", key: false }
+        ]
+      }
+    };
+
+    /* Helper: Play Subtle Synthesized Click */
+    function playTerminalSound(type = 'click') {
+      if (!appState.isAudioEnabled) return;
+      try {
+        const synth = new Tone.MembraneSynth({
+          pitchDecay: 0.008,
+          octaves: 2,
+          envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+        }).toDestination();
+        if (type === 'tick') {
+          synth.triggerAttackRelease("C6", "32n", undefined, 0.05);
+        } else {
+          synth.triggerAttackRelease("G4", "32n", undefined, 0.08);
+        }
+      } catch (e) {
+        // Fallback or muted
+      }
+    }
+
+    /* Render Global Top Ticker */
+    function renderTicker() {
+      const container = document.getElementById('globalTickerTrack');
+      const items = [
+        { sym: "NIFTY 50", val: "22,721.95", chg: "-0.42%", up: false },
+        { sym: "BANK NIFTY", val: "55,481.05", chg: "+0.18%", up: true },
+        { sym: "S&P 500", val: "7,788.36", chg: "+0.65%", up: true },
+        { sym: "DOW JONES", val: "51,754.92", chg: "+0.31%", up: true },
+        { sym: "BTC/USD", val: "$83,263.62", chg: "+2.14%", up: true },
+        { sym: "ETH/USD", val: "$2,506.08", chg: "-0.85%", up: false },
+        { sym: "USD/INR", val: "₹95.01", chg: "+0.04%", up: false },
+        { sym: "US 10Y YIELD", val: "5.24%", chg: "0.00", up: true },
+        { sym: "INDIA 10Y", val: "6.85%", chg: "0.00", up: true },
+        { sym: "INDIA REPO", val: "5.50%", chg: "+0.25%", up: true }
+      ];
+
+      // Double array for continuous seamless infinite loop
+      const fullList = [...items, ...items];
+      container.innerHTML = fullList.map(item => `
+        <div class="inline-flex items-center gap-2 px-4 border-r border-terminal-border/60">
+          <span class="text-slate-300 font-bold">${item.sym}</span>
+          <span class="text-white">${item.val}</span>
+          <span class="${item.up ? 'text-emerald-400' : 'text-rose-400'} flex items-center gap-0.5">
+            <i class="fa-solid fa-caret-${item.up ? 'up' : 'down'} text-[10px]"></i> ${item.chg}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    /* Draw Canvas Semicircle Radial Gauges */
+    function drawGauge(canvasId, score, colorHex) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      const centerX = width / 2;
+      const centerY = height - 4;
+      const radius = width / 2 - 8;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Track Arc (gray background)
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI, false);
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#1e293b';
+      ctx.stroke();
+
+      // Colored Gauge Progress Arc
+      const progressAngle = Math.PI + (score / 100) * Math.PI;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, Math.PI, progressAngle, false);
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = colorHex;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Needle tick dot
+      const needleX = centerX + (radius - 2) * Math.cos(progressAngle);
+      const needleY = centerY + (radius - 2) * Math.sin(progressAngle);
+      ctx.beginPath();
+      ctx.arc(needleX, needleY, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+
+    /* Render Index Dashboard Tables (Left & Right Split) */
+    function renderIndicesTable() {
+      const leftContainer = document.getElementById('indicesTableLeft');
+      const rightContainer = document.getElementById('indicesTableRight');
+      
+      const filter = appState.activeIndexFilter;
+      const query = appState.searchQuery.toLowerCase();
+
+      const filterPredicate = item => {
+        // Search filter
+        if (query && !item.name.toLowerCase().includes(query)) return false;
+
+        // Button filters
+        if (filter === 'SWING_TRUE') return item.swing === true;
+        if (filter === 'MF_TRUE') return item.moneyFlow === true;
+        if (filter === 'SECTOR') return item.type === 'SECTOR';
+        if (filter === 'GLOBAL_CRYPTO') return item.type === 'GLOBAL_CRYPTO';
+        return true;
+      };
+
+      const leftItems = rawData.indices.filter(item => item.col === 'L').filter(filterPredicate);
+      const rightItems = rawData.indices.filter(item => item.col === 'R').filter(filterPredicate);
+
+      const makeRow = item => {
+        // Format price display
+        let priceStr = item.display || '';
+        if (item.price !== null) {
+          if (item.currency === '$') {
+            priceStr = `$${item.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+          } else if (item.currency === '%') {
+            priceStr = `${item.price.toFixed(2)}%`;
+          } else if (item.currency === '') {
+            priceStr = `${item.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+          } else {
+            priceStr = `₹${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+          }
+        }
+
+        // Badges for SWING
+        let swingBadge = `<span class="text-slate-500">—</span>`;
+        if (item.swing === true) {
+          swingBadge = `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/80 text-emerald-400 font-bold text-[10px]">TRUE</span>`;
+        } else if (item.swing === false) {
+          swingBadge = `<span class="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-800/60 text-rose-400 font-bold text-[10px]">FALSE</span>`;
+        } else if (item.swing === null) {
+          swingBadge = `<span class="text-slate-500 text-[10px]">N/A</span>`;
+        }
+
+        // Badges for MONEY FLOW
+        let mfBadge = `<span class="text-slate-500">—</span>`;
+        if (item.moneyFlow === true) {
+          mfBadge = `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/80 text-emerald-400 font-bold text-[10px]">TRUE</span>`;
+        } else if (item.moneyFlow === false) {
+          mfBadge = `<span class="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-800/60 text-rose-400 font-bold text-[10px]">FALSE</span>`;
+        } else if (item.moneyFlow === null) {
+          mfBadge = `<span class="text-slate-500 text-[10px]">N/A</span>`;
+        }
+
+        const isHighlight = item.highlight ? 'text-terminal-gold font-black' : 'text-slate-200';
+
+        return `
+          <tr class="hover:bg-terminal-card/90 transition-colors group cursor-pointer" onclick="inspectAsset('${item.name}')">
+            <td class="py-2 px-3 font-semibold ${isHighlight} group-hover:text-amber-300">
+              ${item.name}
+            </td>
+            <td class="py-2 px-3 text-right font-medium text-slate-100" id="price-${item.name}">
+              ${priceStr}
+            </td>
+            <td class="py-2 px-3 text-center">
+              ${swingBadge}
+            </td>
+            <td class="py-2 px-3 text-center">
+              ${mfBadge}
+            </td>
+          </tr>
+        `;
+      };
+
+      leftContainer.innerHTML = leftItems.length ? leftItems.map(makeRow).join('') : `<tr><td colspan="4" class="text-center py-4 text-slate-500">No matching assets in Col 1</td></tr>`;
+      rightContainer.innerHTML = rightItems.length ? rightItems.map(makeRow).join('') : `<tr><td colspan="4" class="text-center py-4 text-slate-500">No matching assets in Col 2</td></tr>`;
+    }
+
+    /* Filter Indices Handler */
+    function filterIndices(filterType) {
+      playTerminalSound();
+      appState.activeIndexFilter = filterType;
+      document.querySelectorAll('.idx-filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filterType) {
+          btn.className = 'idx-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold';
+        } else {
+          btn.className = 'idx-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white';
+        }
+      });
+      renderIndicesTable();
+    }
+
+    let flowsChartInstance = null;
+
+    /* Render FII & DII Tables */
+    function renderFlows() {
+      // Monthly Flows
+      const monthlyBody = document.getElementById('monthlyFlowsBody');
+      const monthlyHtml = rawData.monthlyFlows.map(row => {
+        const isFiiNeg = row.fiiNet < 0;
+        const isDiiPos = row.diiNet > 0;
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2 px-3 font-bold text-white">${row.month}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.fiiBuy}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.fiiSell}</td>
+            <td class="py-2 px-2 text-right font-bold ${isFiiNeg ? 'text-rose-400' : 'text-emerald-400'}">
+              ${row.fiiNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.diiBuy}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.diiSell}</td>
+            <td class="py-2 px-3 text-right font-bold ${isDiiPos ? 'text-emerald-400' : 'text-rose-400'}">
+              +${row.diiNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      // Monthly Total Row
+      const totalRow = `
+        <tr class="bg-[#0f172a] font-bold border-t-2 border-terminal-border">
+          <td class="py-2.5 px-3 text-terminal-gold uppercase">TOTAL (12M)</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-rose-400 font-black">-4,96,164.35</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-3 text-right text-emerald-400 font-black">+8,48,241.18</td>
+        </tr>
+      `;
+      monthlyBody.innerHTML = monthlyHtml + totalRow;
+
+      // Daily Flows
+      const dailyBody = document.getElementById('dailyFlowsBody');
+      const dailyHtml = rawData.dailyFlows.map(row => {
+        const isFiiNeg = row.fiiNet < 0;
+        const isDiiPos = row.diiNet > 0;
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2 px-3 font-semibold text-white">${row.date}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.fiiBuy}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.fiiSell}</td>
+            <td class="py-2 px-2 text-right font-bold ${isFiiNeg ? 'text-rose-400' : 'text-emerald-400'}">
+              ${row.fiiNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.diiBuy}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${row.diiSell}</td>
+            <td class="py-2 px-3 text-right font-bold ${isDiiPos ? 'text-emerald-400' : 'text-rose-400'}">
+              +${row.diiNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      const dailyTotalRow = `
+        <tr class="bg-[#0f172a] font-bold border-t-2 border-terminal-border">
+          <td class="py-2.5 px-3 text-terminal-gold uppercase">WEEKLY TOTAL</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-rose-400 font-black">-41,486.99</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">—</td>
+          <td class="py-2.5 px-3 text-right text-emerald-400 font-black">+43,400.34</td>
+        </tr>
+      `;
+      dailyBody.innerHTML = dailyHtml + dailyTotalRow;
+
+      // Initialize Flow Chart
+      renderFlowsChart();
+    }
+
+    /* Initialize Chart.js for Flows */
+    function renderFlowsChart() {
+      const ctx = document.getElementById('flowsChartCanvas').getContext('2d');
+      if (flowsChartInstance) {
+        flowsChartInstance.destroy();
+      }
+
+      // Take last 6 months for clear visualization
+      const recent = [...rawData.monthlyFlows].slice(0, 7).reverse();
+      const labels = recent.map(r => r.month.split(' ')[0]);
+      const fiiData = recent.map(r => r.fiiNet);
+      const diiData = recent.map(r => r.diiNet);
+
+      flowsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'FII Net (₹ Cr)',
+              data: fiiData,
+              backgroundColor: 'rgba(239, 68, 68, 0.75)',
+              borderColor: '#ef4444',
+              borderWidth: 1,
+              borderRadius: 4
+            },
+            {
+              label: 'DII Net (₹ Cr)',
+              data: diiData,
+              backgroundColor: 'rgba(16, 185, 129, 0.75)',
+              borderColor: '#10b981',
+              borderWidth: 1,
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleFont: { family: 'monospace' },
+              bodyFont: { family: 'monospace' },
+              borderColor: '#1f3358',
+              borderWidth: 1,
+              callbacks: {
+                label: function(ctx) {
+                  return ` ${ctx.dataset.label}: ₹${ctx.parsed.y.toLocaleString('en-IN')} Cr`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(31, 51, 88, 0.3)' },
+              ticks: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(31, 51, 88, 0.3)' },
+              ticks: {
+                color: '#94a3b8',
+                font: { family: 'monospace', size: 10 },
+                callback: val => (val / 1000).toFixed(0) + 'k Cr'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    /* Toggle Monthly vs Daily Flow Tables */
+    function toggleFlowView(view) {
+      playTerminalSound();
+      const monthlyContainer = document.getElementById('monthlyFlowTableContainer');
+      const dailyContainer = document.getElementById('dailyFlowTableContainer');
+      const btnMonthly = document.getElementById('flowBtnMonthly');
+      const btnDaily = document.getElementById('flowBtnDaily');
+
+      if (view === 'monthly') {
+        monthlyContainer.classList.remove('hidden');
+        dailyContainer.classList.add('hidden');
+        btnMonthly.className = 'px-3 py-1.5 rounded-lg bg-terminal-gold text-slate-950 font-bold transition-all';
+        btnDaily.className = 'px-3 py-1.5 rounded-lg bg-terminal-card border border-terminal-border text-slate-300 hover:text-white transition-all';
+      } else {
+        monthlyContainer.classList.add('hidden');
+        dailyContainer.classList.remove('hidden');
+        btnDaily.className = 'px-3 py-1.5 rounded-lg bg-terminal-gold text-slate-950 font-bold transition-all';
+        btnMonthly.className = 'px-3 py-1.5 rounded-lg bg-terminal-card border border-terminal-border text-slate-300 hover:text-white transition-all';
+      }
+    }
+
+    /* Render Sector & Global Rankings */
+    function renderRankings() {
+      // 1. Sector Rankings
+      const sectorBody = document.getElementById('sectorRankingBody');
+      const query = appState.searchQuery.toLowerCase();
+
+      const filteredSectors = rawData.sectorRankings.filter(s => 
+        !query || s.name.toLowerCase().includes(query)
+      );
+
+      sectorBody.innerHTML = filteredSectors.map(s => {
+        // Current Rank badge (green top 5, red bottom 5)
+        let rankBadgeClass = "bg-terminal-card border border-terminal-border text-slate-300";
+        if (s.currentRank <= 5) rankBadgeClass = "bg-emerald-900/60 border border-emerald-600 text-emerald-300 font-bold";
+        else if (s.currentRank >= 16) rankBadgeClass = "bg-rose-950/60 border border-rose-700 text-rose-300 font-bold";
+
+        // Move arrow
+        let moveBadge = `<span class="text-slate-500">—</span>`;
+        if (s.move > 0) {
+          moveBadge = `<span class="text-emerald-400 font-bold flex items-center justify-center gap-1"><i class="fa-solid fa-arrow-up text-[10px]"></i> ${s.move}</span>`;
+        } else if (s.move < 0) {
+          moveBadge = `<span class="text-rose-400 font-bold flex items-center justify-center gap-1"><i class="fa-solid fa-arrow-down text-[10px]"></i> ${Math.abs(s.move)}</span>`;
+        }
+
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2 px-3 font-semibold text-slate-200">${s.name}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${s.price}</td>
+            <td class="py-2 px-2 text-center">
+              <span class="inline-block px-2 py-0.5 rounded text-xs ${rankBadgeClass}">${s.currentRank}</span>
+            </td>
+            <td class="py-2 px-2 text-center text-slate-400">${s.lastRank}</td>
+            <td class="py-2 px-3 text-center">${moveBadge}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // 2. Global Index Rankings
+      const globalBody = document.getElementById('globalRankingBody');
+      const filteredGlobals = rawData.globalRankings.filter(g => 
+        !query || g.name.toLowerCase().includes(query)
+      );
+
+      globalBody.innerHTML = filteredGlobals.map(g => {
+        let rankBadgeClass = "bg-terminal-card border border-terminal-border text-slate-300";
+        if (g.currentRank <= 3) rankBadgeClass = "bg-emerald-900/70 border border-emerald-500 text-emerald-300 font-bold";
+        else if (g.currentRank >= 10) rankBadgeClass = "bg-rose-950/70 border border-rose-600 text-rose-300 font-bold";
+
+        let moveBadge = `<span class="text-slate-500">—</span>`;
+        if (g.move > 0) {
+          moveBadge = `<span class="text-emerald-400 font-bold flex items-center justify-center gap-1"><i class="fa-solid fa-arrow-up text-[10px]"></i> ${g.move}</span>`;
+        } else if (g.move < 0) {
+          moveBadge = `<span class="text-rose-400 font-bold flex items-center justify-center gap-1"><i class="fa-solid fa-arrow-down text-[10px]"></i> ${Math.abs(g.move)}</span>`;
+        }
+
+        const isHighlight = g.highlight ? 'text-terminal-gold font-black' : 'text-slate-200';
+
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2.5 px-3 font-semibold ${isHighlight}">${g.name}</td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="inline-block px-2.5 py-0.5 rounded text-xs ${rankBadgeClass}">${g.currentRank}</span>
+            </td>
+            <td class="py-2.5 px-3 text-center text-slate-400">${g.prevRank}</td>
+            <td class="py-2.5 px-4 text-center">${moveBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /* Render IPO Calendar & Last Week Listings */
+    function renderIPOs() {
+      // 1. Upcoming IPOs Table
+      const ipoBody = document.getElementById('upcomingIposBody');
+      const filter = appState.activeIPOFilter;
+      const query = appState.searchQuery.toLowerCase();
+
+      const filteredIPOs = rawData.upcomingIpos.filter(ipo => {
+        if (query && !ipo.name.toLowerCase().includes(query)) return false;
+        if (filter !== 'ALL' && ipo.segment !== filter) return false;
+        return true;
+      });
+
+      ipoBody.innerHTML = filteredIPOs.map(ipo => {
+        let gmpClass = "text-slate-400";
+        if (ipo.gmpPct > 20) gmpClass = "text-emerald-400 font-bold";
+        else if (ipo.gmpPct > 0) gmpClass = "text-emerald-500";
+
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2 px-3 font-bold text-terminal-gold flex items-center gap-1.5">
+              ${ipo.name}
+            </td>
+            <td class="py-2 px-1 text-slate-400 text-[10px]">
+              <span class="px-1.5 py-0.5 bg-terminal-surface rounded border border-terminal-border">${ipo.segment}</span>
+            </td>
+            <td class="py-2 px-1 text-slate-300 text-[11px] whitespace-nowrap">${ipo.opens} - ${ipo.closes}</td>
+            <td class="py-2 px-2 text-right text-slate-200 font-semibold">${ipo.band}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${ipo.size}</td>
+            <td class="py-2 px-1 text-center text-slate-400">${ipo.lot}</td>
+            <td class="py-2 px-2 text-right text-slate-300">${ipo.listing}</td>
+            <td class="py-2 px-3 text-right ${gmpClass}">
+              ${ipo.gmpRs} (${ipo.gmpPct.toFixed(1)}%)
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 2. Last Week Listings Horizontal Bar Chart
+      const listingsContainer = document.getElementById('listingsBarContainer');
+      const maxGain = 65.44; // Scale benchmark
+
+      listingsContainer.innerHTML = rawData.lastWeekListings.map(item => {
+        const isPositive = item.gain > 0;
+        const isFlat = item.gain === 0;
+        const isNegative = item.gain < 0;
+
+        const absGain = Math.abs(item.gain);
+        const barWidthPct = Math.min(100, Math.max(3, (absGain / maxGain) * 100));
+
+        let colorBg = 'bg-emerald-500';
+        let textColor = 'text-emerald-400';
+        if (isNegative) {
+          colorBg = 'bg-rose-500';
+          textColor = 'text-rose-400';
+        } else if (isFlat) {
+          colorBg = 'bg-slate-500';
+          textColor = 'text-slate-400';
+        }
+
+        return `
+          <div class="flex items-center gap-2">
+            <div class="w-36 sm:w-44 truncate text-slate-200 font-semibold text-xs" title="${item.name}">
+              ${item.name}
+            </div>
+            <div class="w-12 text-slate-400 text-[11px]">${item.listed}</div>
+            
+            <!-- Flexible Visual Bar Container -->
+            <div class="flex-1 bg-terminal-surface h-4 rounded overflow-hidden flex items-center px-1 border border-terminal-border/60">
+              <div 
+                class="h-2 rounded transition-all duration-500 ${colorBg}" 
+                style="width: ${barWidthPct}%;"
+              ></div>
+            </div>
+
+            <div class="w-20 text-right font-bold text-xs ${textColor}">
+              ${item.gain > 0 ? '+' : ''}${item.gain.toFixed(2)}%
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* Filter IPOs Handler */
+    function filterIPOs(segment) {
+      playTerminalSound();
+      appState.activeIPOFilter = segment;
+      document.querySelectorAll('.ipo-filter-btn').forEach(btn => {
+        if (btn.dataset.filter === segment) {
+          btn.className = 'ipo-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold';
+        } else {
+          btn.className = 'ipo-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white';
+        }
+      });
+      renderIPOs();
+    }
+
+    /* Render Mutual Funds */
+    function renderMutualFunds() {
+      const fundBody = document.getElementById('mutualFundsBody');
+      const filter = appState.activeFundFilter;
+      const query = appState.searchQuery.toLowerCase();
+
+      const filteredFunds = rawData.mutualFunds.filter(f => {
+        if (query && !f.name.toLowerCase().includes(query) && !f.category.toLowerCase().includes(query)) return false;
+        if (filter !== 'ALL' && f.category !== filter) return false;
+        return true;
+      });
+
+      fundBody.innerHTML = filteredFunds.map(fund => {
+        // Highlighting for high compounders (>20% in 7Y)
+        const isHighCompounder = fund.ret7Y.includes('2') && parseFloat(fund.ret7Y) >= 20;
+        
+        return `
+          <tr class="hover:bg-terminal-card/80 transition-colors">
+            <td class="py-2.5 px-3 font-bold text-terminal-gold">${fund.category}</td>
+            <td class="py-2.5 px-2 text-center text-slate-400 font-semibold">${fund.rank}</td>
+            <td class="py-2.5 px-3 font-semibold text-slate-200">${fund.name}</td>
+            <td class="py-2.5 px-3 text-right text-slate-300">${fund.aum}</td>
+            <td class="py-2.5 px-3 text-right ${fund.ret1Y >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-medium">
+              ${fund.ret1Y > 0 ? '+' : ''}${fund.ret1Y}%
+            </td>
+            <td class="py-2.5 px-3 text-right text-emerald-400 font-medium">${fund.ret3Y}%</td>
+            <td class="py-2.5 px-3 text-right text-emerald-400 font-medium">${fund.ret5Y}%</td>
+            <td class="py-2.5 px-4 text-right ${isHighCompounder ? 'text-emerald-300 font-black bg-emerald-950/30' : 'text-emerald-400 font-bold'}">
+              ${fund.ret7Y}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /* Filter Funds Handler */
+    function filterFunds(category) {
+      playTerminalSound();
+      appState.activeFundFilter = category;
+      document.querySelectorAll('.fund-filter-btn').forEach(btn => {
+        if (btn.dataset.cat === category) {
+          btn.className = 'fund-filter-btn px-2.5 py-1 rounded bg-terminal-gold text-slate-950 font-bold';
+        } else {
+          btn.className = 'fund-filter-btn px-2.5 py-1 rounded bg-terminal-card border border-terminal-border text-slate-300 hover:text-white';
+        }
+      });
+      renderMutualFunds();
+    }
+
+    /* Render Economic Calendar */
+    function renderCalendar() {
+      // 1. India Events
+      const indiaList = document.getElementById('indiaCalendarList');
+      indiaList.innerHTML = rawData.calendar.india.map(ev => `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-terminal-surface/90 border border-terminal-border hover:border-terminal-gold/50 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="w-14 text-center px-2 py-1 bg-emerald-950/60 border border-emerald-700/80 rounded font-mono">
+              <span class="block text-xs font-bold text-emerald-300">${ev.date}</span>
+              <span class="block text-[10px] text-slate-400 uppercase">${ev.day}</span>
+            </div>
+            <div>
+              <div class="text-xs font-bold ${ev.key ? 'text-amber-400' : 'text-slate-200'}">
+                ${ev.event}
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono">${ev.details}</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-terminal-card text-emerald-400 font-mono text-[10px] border border-terminal-border">
+            ${ev.daysLeft}
+          </span>
+        </div>
+      `).join('');
+
+      // 2. US Events
+      const usList = document.getElementById('usCalendarList');
+      usList.innerHTML = rawData.calendar.us.map(ev => `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-terminal-surface/90 border border-terminal-border hover:border-terminal-gold/50 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="w-14 text-center px-2 py-1 bg-indigo-950/60 border border-indigo-700/80 rounded font-mono">
+              <span class="block text-xs font-bold text-indigo-300">${ev.date}</span>
+              <span class="block text-[10px] text-slate-400 uppercase">${ev.day}</span>
+            </div>
+            <div>
+              <div class="text-xs font-bold ${ev.key ? 'text-amber-400' : 'text-slate-200'}">
+                ${ev.event}
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono">${ev.details}</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-terminal-card text-indigo-300 font-mono text-[10px] border border-terminal-border">
+            ${ev.daysLeft}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    /* Tab View Switcher */
+    function switchTab(targetId) {
+      playTerminalSound();
+      appState.currentTab = targetId;
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.target === targetId) {
+          btn.className = 'tab-btn px-3 py-1 rounded-md font-medium transition-all bg-terminal-gold text-slate-950 font-bold';
+        } else {
+          btn.className = 'tab-btn px-3 py-1 rounded-md font-medium text-slate-300 hover:text-white hover:bg-terminal-hover transition-all';
+        }
+      });
+
+      const sections = document.querySelectorAll('.module-section');
+      if (targetId === 'all') {
+        sections.forEach(sec => sec.classList.remove('hidden'));
+      } else {
+        sections.forEach(sec => {
+          if (sec.id === `sec-${targetId}`) {
+            sec.classList.remove('hidden');
+          } else {
+            sec.classList.add('hidden');
+          }
+        });
+      }
+    }
+
+    /* Global Search Handler across all tables */
+    function handleGlobalSearch(query) {
+      appState.searchQuery = query;
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (query) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      renderIndicesTable();
+      renderRankings();
+      renderIPOs();
+      renderMutualFunds();
+    }
+
+    function clearGlobalSearch() {
+      const input = document.getElementById('terminalSearch');
+      input.value = '';
+      handleGlobalSearch('');
+    }
+
+    /* Real-time Subtle Price Fluctuation Simulator */
+    function startRealtimeSimulation() {
+      if (appState.simulationInterval) clearInterval(appState.simulationInterval);
+
+      appState.simulationInterval = setInterval(() => {
+        if (!appState.isSimulationActive) return;
+
+        // Randomly pick an index to fluctuate slightly
+        const randomIndexIdx = Math.floor(Math.random() * rawData.indices.length);
+        const item = rawData.indices[randomIndexIdx];
+        if (item.price === null) return;
+
+        const delta = (Math.random() - 0.49) * (item.price * 0.001);
+        const oldPrice = item.price;
+        item.price = +(item.price + delta).toFixed(2);
+
+        const el = document.getElementById(`price-${item.name}`);
+        if (el) {
+          let priceStr = '';
+          if (item.currency === '$') priceStr = `$${item.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+          else if (item.currency === '%') priceStr = `${item.price.toFixed(2)}%`;
+          else priceStr = `₹${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+          el.textContent = priceStr;
+          el.classList.remove('price-flash-up', 'price-flash-down');
+          void el.offsetWidth; // trigger reflow
+          el.classList.add(item.price >= oldPrice ? 'price-flash-up' : 'price-flash-down');
+        }
+
+        playTerminalSound('tick');
+      }, 3500);
+    }
+
+    /* Toggle Simulation State */
+    function toggleSimulation() {
+      playTerminalSound();
+      appState.isSimulationActive = !appState.isSimulationActive;
+      const btnText = document.getElementById('tickStatusText');
+      const icon = document.getElementById('tickStatusIcon');
+
+      if (appState.isSimulationActive) {
+        btnText.textContent = 'Live Pulse: ON';
+        icon.className = 'fa-solid fa-bolt text-terminal-gold';
+        showToast('Real-time market simulator enabled');
+      } else {
+        btnText.textContent = 'Live Pulse: PAUSED';
+        icon.className = 'fa-solid fa-pause text-slate-400';
+        showToast('Real-time simulation paused');
+      }
+    }
+
+    /* Toggle Terminal Audio */
+    function toggleAudio() {
+      appState.isAudioEnabled = !appState.isAudioEnabled;
+      const icon = document.getElementById('audioIcon');
+      if (appState.isAudioEnabled) {
+        icon.className = 'fa-solid fa-volume-high text-terminal-gold';
+        Tone.start();
+        playTerminalSound();
+        showToast('Terminal audio cues enabled');
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark text-slate-400';
+        showToast('Terminal audio muted');
+      }
+    }
+
+    /* Inspect Asset Quick Action */
+    function inspectAsset(assetName) {
+      playTerminalSound();
+      showToast(`Selected ${assetName} for institutional deep-dive`);
+    }
+
+    /* Show Toast Message */
+    function showToast(message) {
+      const toast = document.getElementById('toastNotification');
+      const text = document.getElementById('toastMsg');
+      text.textContent = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2600);
+    }
+
+    /* Export Dashboard Summary to CSV */
+    function exportDashboardData() {
+      playTerminalSound();
+      showToast('Compiling Institutional Weekly Summary CSV...');
+
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "=== WEEKLY MARKET DASHBOARD #MVD (14 OCT 2026) ===\n\n";
+
+      // Indices section
+      csvContent += "INDEX / ASSET,CURT_PRICE,SWING,MONEY FLOW\n";
+      rawData.indices.forEach(i => {
+        csvContent += `"${i.name}","${i.price || 'N/A'}","${i.swing}","${i.moneyFlow}"\n`;
+      });
+
+      csvContent += "\n=== FII & DII MONTHLY FLOWS (₹ Cr) ===\n";
+      csvContent += "Month,FII Buy,FII Sell,FII Net,DII Buy,DII Sell,DII Net\n";
+      rawData.monthlyFlows.forEach(f => {
+        csvContent += `"${f.month}","${f.fiiBuy}","${f.fiiSell}","${f.fiiNet}","${f.diiBuy}","${f.diiSell}","${f.diiNet}"\n`;
+      });
+
+      csvContent += "\n=== UPCOMING IPOS ===\n";
+      csvContent += "IPO Name,Segment,Opens,Closes,Band,GMP Rs,GMP Pct\n";
+      rawData.upcomingIpos.forEach(p => {
+        csvContent += `"${p.name}","${p.segment}","${p.opens}","${p.closes}","${p.band}","${p.gmpRs}","${p.gmpPct}%"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Weekly_Market_Dashboard_MVD_14Oct2026.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* Initialize Application on DOM Ready */
+    window.addEventListener('DOMContentLoaded', () => {
+      renderTicker();
+      drawGauge('btcGaugeCanvas', 57, '#10b981');  // 57 = Greed (green)
+      drawGauge('niftyGaugeCanvas', 26, '#f43f5e'); // 26 = Fear (rose/red)
+      renderIndicesTable();
+      renderFlows();
+      renderRankings();
+      renderIPOs();
+      renderMutualFunds();
+      renderCalendar();
+      startRealtimeSimulation();
+    });
+  </script>
+</body>
+</html>
